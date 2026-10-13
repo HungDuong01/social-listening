@@ -1,0 +1,36 @@
+# Production overlay - adds the public-facing reverse proxy.
+#
+# Use together with the base file, never alone:
+#
+#   docker compose --env-file .env.docker -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# The base docker-compose.yml already binds every published port to
+# 127.0.0.1 (db, and app's web UI + noVNC) - nothing here needs to touch
+# that. Caddy reaches "app" directly over the internal compose network
+# (service name, not a published port) and is the only thing that binds to
+# a public interface: it terminates TLS for a real domain (automatic Let's
+# Encrypt) and gates every request behind HTTP Basic Auth shared by the
+# team, since the app itself has no login system of its own. noVNC stays
+# off the public path entirely - reach it via an SSH tunnel into this
+# server's own 127.0.0.1:6080 when a platform login is needed (README 9.6).
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env.docker - the public hostname Caddy requests a certificate for}
+      BASIC_AUTH_USER: ${BASIC_AUTH_USER:?set BASIC_AUTH_USER in .env.docker}
+      BASIC_AUTH_HASH: ${BASIC_AUTH_HASH:?set BASIC_AUTH_HASH in .env.docker - see README 9.6 for how to generate it}
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

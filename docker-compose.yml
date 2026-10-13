@@ -1,0 +1,86 @@
+# Run with the dedicated docker env file, not Compose's implicit ".env":
+#
+#   docker compose --env-file .env.docker up -d --build
+#
+# The explicit --env-file matters: Compose auto-loads a file literally named
+# ".env" for variable substitution, and this repo already has one - used by
+# `python run.py` when running directly on the host. That file's
+# SC_DATABASE_URL points at 127.0.0.1:5433, and "127.0.0.1" inside a
+# container means the container itself, not the host machine. Keeping the
+# two files separate (and naming this one explicitly) avoids that mix-up
+# rather than relying on remembering not to make it.
+
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: social_crawler
+      POSTGRES_PASSWORD: ${POSTGRES_APP_PASSWORD:?set POSTGRES_APP_PASSWORD in .env.docker}
+      POSTGRES_DB: social_crawler
+    volumes:
+      # postgres:18+ images store data under a major-version-specific
+      # subdirectory of /var/lib/postgresql itself (pg_ctlcluster-style
+      # layout), not a plain /var/lib/postgresql/data mount as older
+      # images expected - mounting at "data" makes the 18 entrypoint
+      # refuse to start. See https://github.com/docker-library/postgres/pull/1259
+      - pg_data:/var/lib/postgresql
+      - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    ports:
+      # Bound to 127.0.0.1 only: reachable from pgAdmin/psql on this same
+      # machine during development, never from another machine on the
+      # network or the internet. Nothing in the app needs this published at
+      # all - only the "app" service talks to "db", over the compose
+      # network - this exists purely as a development convenience.
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5434}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U social_crawler -d social_crawler"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env.docker
+    environment:
+      # Architectural: fixed by how this compose file wires the two
+      # services together, so kept out of .env.docker where a typo could
+      # silently break connectivity between them.
+      SC_HOST: 0.0.0.0
+      SC_PORT: 8000
+      SC_DATABASE_URL: postgresql+asyncpg://social_crawler:${POSTGRES_APP_PASSWORD:?set POSTGRES_APP_PASSWORD in .env.docker}@db:5432/social_crawler
+      SC_HEADLESS: "true"
+      SC_CHROMIUM_CHANNEL: chromium
+      SC_USE_PERSISTENT_PROFILE: "true"
+    ports:
+      # Bound to 127.0.0.1: reachable as localhost on this machine (that is
+      # all local development ever needed - see README) but never directly
+      # from another machine. A real deployment puts Caddy in front (see
+      # docker-compose.prod.yml) instead of publishing this to 0.0.0.0 -
+      # the app itself has no login system, so an open port here is an open
+      # door to every crawled record and every crawl control in the UI.
+      - "127.0.0.1:${APP_HOST_PORT:-8088}:8000"
+      - "127.0.0.1:${NOVNC_HOST_PORT:-6080}:6080"
+    volumes:
+      - profiles:/app/profiles
+      - sessions:/app/sessions
+      - exports:/app/exports
+      - crawler_data:/app/data
+    # Chromium needs real shared memory to render; Docker's 64MB default
+    # causes renderer crashes under normal use (a well-documented
+    # Chromium-in-Docker issue, unrelated to this project specifically).
+    shm_size: "1gb"
+
+volumes:
+  pg_data:
+  profiles:
+  sessions:
+  exports:
+  crawler_data:

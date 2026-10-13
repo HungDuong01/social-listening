@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Social Crawler</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕸️</text></svg>" />
+</head>
+<body>
+  <div class="aurora" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.6 2.6 2.6 15.4 0 18M12 3c-2.6 2.6-2.6 15.4 0 18" />
+        </svg>
+      </div>
+      <div class="brand-text">
+        <strong>Social Crawler</strong>
+        <span>Threads · Instagram · Facebook · TikTok</span>
+      </div>
+    </div>
+
+    <div class="topbar-right">
+      <div class="worker-pill" id="worker-pill" title="Trạng thái worker">
+        <i class="pulse"></i><span id="worker-text">đang kết nối…</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="shell">
+
+    <!-- ============ COMMAND BAR ============ -->
+    <form id="crawl-form" class="command" autocomplete="off">
+      <div class="command-row">
+        <div class="search-wrap">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
+          </svg>
+          <input id="keyword" type="text" placeholder="Nhập từ khoá cần theo dõi" required />
+        </div>
+        <button type="submit" id="crawl-btn" class="btn-primary">
+          <span class="btn-label">Crawl</span>
+          <svg class="btn-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+            <path d="M5 12h13M13 6l6 6-6 6" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="command-row second">
+        <div id="platforms" class="chips" role="group" aria-label="Nền tảng"></div>
+
+        <div class="inline-opts">
+          <label class="mini">
+            <span>Số bài</span>
+            <input id="max-posts" type="number" value="30" min="1" max="500" />
+          </label>
+          <label class="mini">
+            <span>Sắp xếp</span>
+            <select id="search-filter">
+              <option value="top">Top</option>
+              <option value="recent">Mới nhất</option>
+            </select>
+          </label>
+          <label class="mini">
+            <span>Comment/bài</span>
+            <input id="max-comments" type="number" value="200" min="0" max="2000" />
+          </label>
+          <label class="toggle" title="Thu thập comment">
+            <input id="include-comments" type="checkbox" checked />
+            <i></i><span>Comment</span>
+          </label>
+        </div>
+      </div>
+      <p class="form-hint" id="form-hint"></p>
+    </form>
+
+    <!-- ============ KPI ============ -->
+    <section class="kpis" id="kpis">
+      <article class="kpi"><span class="kpi-label">Bài viết</span><strong id="kpi-posts">—</strong><i class="kpi-spark"></i></article>
+      <article class="kpi"><span class="kpi-label">Comment</span><strong id="kpi-comments">—</strong><i class="kpi-spark"></i></article>
+      <article class="kpi"><span class="kpi-label">Tài khoản</span><strong id="kpi-authors">—</strong><i class="kpi-spark"></i></article>
+      <article class="kpi"><span class="kpi-label">Lần crawl</span><strong id="kpi-jobs">—</strong><i class="kpi-spark"></i></article>
+    </section>
+
+    <div class="split">
+      <!-- ============ PROGRESS ============ -->
+      <section class="card" id="progress-card">
+        <header class="card-head">
+          <h2>Tiến độ</h2>
+          <button id="cancel-btn" class="btn-ghost danger" hidden>Huỷ job</button>
+        </header>
+        <div id="job-progress" class="card-body">
+          <div class="empty-state">
+            <div class="empty-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                <path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/>
+              </svg>
+            </div>
+            <p>Chưa có job nào đang chạy</p>
+            <small>Nhập từ khoá phía trên và bấm Crawl</small>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SESSIONS ============ -->
+      <section class="card">
+        <header class="card-head">
+          <h2>Phiên đăng nhập</h2>
+          <span class="head-note">không lưu mật khẩu</span>
+        </header>
+        <div id="sessions" class="card-body sessions"></div>
+      </section>
+    </div>
+
+    <!-- ============ RESULTS ============ -->
+    <section class="card">
+      <header class="card-head">
+        <h2>Dữ liệu đã thu thập</h2>
+        <div class="head-actions">
+          <select id="result-job" class="select-sm"></select>
+          <div class="btn-group">
+            <button class="btn-ghost" data-export="xlsx">Excel</button>
+            <button class="btn-ghost" data-export="csv">CSV</button>
+            <button class="btn-ghost" data-export="json">JSON</button>
+          </div>
+        </div>
+      </header>
+
+      <div class="table-wrap">
+        <table id="posts-table">
+          <thead>
+            <tr>
+              <th class="col-plat">Nền tảng</th>
+              <th>Account</th>
+              <th>Nội dung</th>
+              <th class="num">Likes</th>
+              <th class="num">Cmt</th>
+              <th class="num">Repost</th>
+              <th class="num">Share</th>
+              <th class="num">Views</th>
+              <th class="col-src">Nguồn</th>
+            </tr>
+          </thead>
+          <tbody id="posts-body"></tbody>
+        </table>
+      </div>
+
+      <footer class="pager">
+        <span class="legend"><em class="nil">—</em> nền tảng không cung cấp số này (khác với 0)</span>
+        <div class="pager-ctl">
+          <button class="btn-ghost" id="prev-page">←</button>
+          <span id="page-info">0–0 / 0</span>
+          <button class="btn-ghost" id="next-page">→</button>
+        </div>
+      </footer>
+    </section>
+  </main>
+
+  <div id="modal" class="modal" hidden>
+    <div class="modal-card">
+      <button class="modal-close" id="modal-close" aria-label="Đóng">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

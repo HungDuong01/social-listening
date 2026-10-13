@@ -1,0 +1,23 @@
+.venv/
+venv/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.git/
+.idea/
+.vscode/
+.pytest_cache/
+
+# Runtime state - these are volumes at container runtime, never image content.
+data/
+sessions/
+profiles/
+exports/
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+
+# Secrets - never baked into an image layer.
+.env
+.env.docker
+.pg_app_password

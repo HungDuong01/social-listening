@@ -1,0 +1,12 @@
+# Caddy auto-provisions and renews a Let's Encrypt certificate for {$DOMAIN}
+# the first time it starts - the domain's DNS A record must already point at
+# this server's public IP before that first start, or the certificate
+# request fails.
+
+{$DOMAIN} {
+	basic_auth {
+		{$BASIC_AUTH_USER} {$BASIC_AUTH_HASH}
+	}
+
+	reverse_proxy app:8000
+}
